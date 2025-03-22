@@ -1,160 +1,222 @@
-import { defineStore } from 'pinia';
-import Constants, { Directions, Positions } from '../config';
+import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+import Constants, { Directions, Positions } from '../config'
+import type { ICell } from '../types/room'
+import usePlayers from './players'
+import useRoom from './room'
 
 interface Ball {
-  color: string;
-  count: number;
-  capacity: number;
-  position: Positions
+  playerId: string
+  count: number
+  capacity: number
+}
+
+interface BallWithColor extends Ball {
+  color: string
 }
 
 interface TravellingBall {
-  fromRow: number;
-  fromCol: number;
-  toRow: number;
-  toCol: number;
+  fromRow: number
+  fromCol: number
+  toRow: number
+  toCol: number
 }
 
-const useReactor = defineStore('reactor', {
-  state: () => ({
-    rows: Constants.NO_OF_ROWS,
-    cols: Constants.NO_OF_COLS,
+const useReactor = defineStore('reactor', () => {
+  const $room = useRoom()
+  const $players = usePlayers()
 
-    boxWidth: 0,
+  const rows = ref(Constants.NO_OF_ROWS)
+  const cols = ref(Constants.NO_OF_COLS)
+  const boxWidth = ref(0)
+  const _ballsMatrix = ref<Ball[][]>([[]])
+  const travellingBalls = ref<TravellingBall[]>([])
 
-    ballsMatrix: [[]] as Ball[][],
+  const ballsMatrix = computed(() => {
+    return _ballsMatrix.value.reduce((acc, row) => {
+      acc.push(row.map(cell => {
+        const playerColor = $players.playersMap[cell.playerId]?.color;
+        return {
+          playerId: cell.playerId,
+          count: cell.count,
+          capacity: cell.capacity,
+          color: playerColor,
+        };
+      }))
+      return acc;
+    }, [] as BallWithColor[][]);
+  });
 
-    travellingBalls: [] as TravellingBall[],
-  }),
+  const travellingBallColor = computed(() => {
+    return $players.playersMap[$players.playerIdTurn]?.color
+  });
 
-  actions: {
-    addBall(row: number, col: number) {
-      this.ballsMatrix[row][col].count += 1;
-    },
+  function addBall(row: number, col: number) {
+    _ballsMatrix.value[row][col].count += 1
+    _ballsMatrix.value[row][col].playerId = $players.playerIdTurn;
+  }
 
-    addTravellingBall(fromRow: number, fromCol: number, toRow: number, toCol: number) {
-      this.travellingBalls.push({ fromRow, fromCol, toRow, toCol });
-    },
+  function addTravellingBall(fromRow: number, fromCol: number, toRow: number, toCol: number) {
+    _ballsMatrix.value[fromRow][fromCol].playerId = $players.playerIdTurn;
+    travellingBalls.value.push({ fromRow, fromCol, toRow, toCol })
+  }
 
-    explode(row: number, col: number) {
-      const Movements = {
-        [Directions.UP]: [-1, 0],
-        [Directions.DOWN]: [1, 0],
-        [Directions.LEFT]: [0, -1],
-        [Directions.RIGHT]: [0, 1],
-      };
+  function explode(row: number, col: number) {
+    const Movements = {
+      [Directions.UP]: [-1, 0],
+      [Directions.DOWN]: [1, 0],
+      [Directions.LEFT]: [0, -1],
+      [Directions.RIGHT]: [0, 1],
+    }
 
-      const isValidBox = (x: number, y: number) =>
-        x >= 0 && y >= 0 && x < this.rows && y < this.cols;
+    const isValidBox = (x: number, y: number) =>
+      x >= 0 && y >= 0 && x < rows.value && y < cols.value
 
-      Object.entries(Movements).forEach(([direction, [moveX, moveY]]) => {
-        const targetRow = row + moveX;
-        const targetCol = col + moveY;
+    Object.entries(Movements).forEach(([direction, [moveX, moveY]]) => {
+      const targetRow = row + moveX
+      const targetCol = col + moveY
 
-        if (isValidBox(targetRow, targetCol)) {
-          this.addTravellingBall(row, col, targetRow, targetCol);
+      if (isValidBox(targetRow, targetCol))
+        addTravellingBall(row, col, targetRow, targetCol)
+    })
+  }
+
+  function explodeIfFull(row: number, col: number) {
+    if (
+      _ballsMatrix.value[row][col].count >= _ballsMatrix.value[row][col].capacity
+    ) {
+      _ballsMatrix.value[row][col].count = 0
+      _ballsMatrix.value[row][col].playerId = '';
+      explode(row, col)
+    }
+  }
+
+  function react() {
+    const travellingBallsCopy = [...travellingBalls.value]
+    travellingBallsCopy.forEach(
+      ({ fromRow, fromCol, toRow, toCol }, index) => {
+        startReaction(toRow, toCol)
+        travellingBalls.value.shift()
+        _ballsMatrix.value[fromRow][fromCol].playerId = '';
+      },
+    )
+  }
+
+  function startReaction(row: number, col: number) {
+    addBall(row, col)
+    explodeIfFull(row, col)
+  }
+
+  function setBoard(boardState: ICell[][]) {
+    rows.value = boardState.length
+    cols.value = boardState[0].length
+
+    const matrix: Ball[][] = []
+    for (let row = 0; row < rows.value; row++) {
+      const rowMatrix: Ball[] = []
+
+      for (let col = 0; col < cols.value; col++) {
+        const cell = boardState[row][col]
+
+        rowMatrix[col] = {
+          playerId: cell.playerId,
+          count: cell.count,
+          capacity: cell.capacity,
         }
-      });
-    },
-
-    explodeIfFull(row: number, col: number) {
-      if (
-        this.ballsMatrix[row][col].count >= this.ballsMatrix[row][col].capacity
-      ) {
-        this.ballsMatrix[row][col].count = 0;
-        this.explode(row, col);
       }
-    },
+      matrix[row] = rowMatrix
+    }
 
-    react() {
-      const travellingBalls = [...this.travellingBalls];
-      travellingBalls.forEach(
-        ({ fromRow, fromCol, toRow, toCol }, index) => {
-          this.startReaction(toRow, toCol);
-          this.travellingBalls.shift();
+    _ballsMatrix.value = matrix
+  }
+
+  // For testing
+  function fillRandomValue() {
+    const matrix: Ball[][] = []
+    const a = false
+
+    for (let row = 0; row < rows.value; row++) {
+      const matrixRow: Ball[] = []
+
+      for (let col = 0; col < cols.value; col++) {
+        const color = Object.values(Constants.Colors)[
+          ~~(Math.random() * Object.values(Constants.Colors)
+            .length)]
+        const ball: Ball = {
+          playerId: '',
+          count: 0,
+          capacity: Constants.CAPACITY[Positions.MIDDLE],
         }
-      );
-    },
-
-    startReaction(row: number, col: number) {
-      this.addBall(row, col);
-      this.explodeIfFull(row, col);
-    },
-
-    fillRandomValue() {
-      const matrix: Ball[][] = [];
-      let a = false;
-
-      for (let row = 0; row < this.rows; row++) {
-        const matrixRow: Ball[] = [];
-
-        for (let col = 0; col < this.cols; col++) {
-          const color = Object.values(Constants.Colors)[
-            ~~(Math.random() * Object.values(Constants.Colors)
-          .length)];
-          let ball: Ball = {
-            color,
-            count: 0,
-            capacity: Constants.CAPACITY[Positions.MIDDLE],
-            position: Positions.MIDDLE,
-          };
-          if (this.isCornerBox(row, col)) {
-            ball.count = 1;
-            // ball.count = 0;
-            ball.capacity = Constants.CAPACITY[Positions.CORNER];
-            ball.position = this.getPosition(row, col);
-          } else if (this.isSideBox(row, col)) {
-            ball.count = ~~(Math.random() * 3);
-            // ball.count = 0;
-            ball.capacity = Constants.CAPACITY[Positions.SIDE];
-            ball.position = this.getPosition(row, col);
-          } else {
-            ball.count = ~~(Math.random() * 4);
-            // ball.count = 0;
-            ball.capacity = Constants.CAPACITY[Positions.MIDDLE];
-            ball.position = this.getPosition(row, col);
-          }
-
-          matrixRow.push(ball);
+        if (isCornerBox(row, col)) {
+          ball.count = 1
+          // ball.count = 0;
+          ball.capacity = Constants.CAPACITY[Positions.CORNER]
         }
-        matrix.push(matrixRow);
+        else if (isSideBox(row, col)) {
+          ball.count = ~~(Math.random() * 3)
+          // ball.count = 0;
+          ball.capacity = Constants.CAPACITY[Positions.SIDE]
+        }
+        else {
+          ball.count = ~~(Math.random() * 4)
+          // ball.count = 0;
+          ball.capacity = Constants.CAPACITY[Positions.MIDDLE]
+        }
+
+        matrixRow.push(ball)
       }
+      matrix.push(matrixRow)
+    }
 
-      this.ballsMatrix = matrix;
-    },
+    _ballsMatrix.value = matrix
+  }
 
-    isCornerBox(row: number, col: number) {
-      return (
-        (row === 0 && col === 0) || // top-left
-        (row === 0 && col === this.cols - 1) || // top-right
-        (row === this.rows - 1 && col === 0) || // bottom-left
-        (row === this.rows - 1 && col === this.cols - 1)
-      ); // bottom-right
-    },
+  function isCornerBox(row: number, col: number) {
+    return (
+      (row === 0 && col === 0) // top-left
+      || (row === 0 && col === cols.value - 1) // top-right
+      || (row === rows.value - 1 && col === 0) // bottom-left
+      || (row === rows.value - 1 && col === cols.value - 1)
+    ) // bottom-right
+  }
 
-    isSideBox(row, col) {
-      return (
-        !this.isCornerBox(row, col) &&
-        (row === 0 ||
-          col === 0 ||
-          row === this.rows - 1 ||
-          col === this.cols - 1)
-      );
-    },
+  function isSideBox(row: number, col: number) {
+    return (
+      !isCornerBox(row, col)
+      && (row === 0
+      || col === 0
+      || row === rows.value - 1
+      || col === cols.value - 1)
+    )
+  }
 
-    isMiddleBox(row, col) {
-      return !this.isSideBox(row, col);
-    },
+  function isMiddleBox(row: number, col: number) {
+    return !isSideBox(row, col)
+  }
 
-    getPosition(row: number, col: number) {
-      if (this.isCornerBox(row, col)) {
-        return Positions.CORNER;
-      } else if (this.isSideBox(row, col)) {
-        return Positions.SIDE;
-      }
-      return Positions.MIDDLE;
-    },
-  },
-});
+  function getPosition(row: number, col: number) {
+    if (isCornerBox(row, col))
+      return Positions.CORNER
+    else if (isSideBox(row, col))
+      return Positions.SIDE
 
-export default useReactor;
+    return Positions.MIDDLE
+  }
+
+  return {
+    rows,
+    cols,
+    boxWidth,
+    travellingBalls,
+
+    ballsMatrix,
+    travellingBallColor,
+
+    setBoard,
+    react,
+    startReaction,
+    fillRandomValue,
+  }
+})
+
+export default useReactor

@@ -1,10 +1,6 @@
 <template>
-  <section class="ball-container travelling-balls" :style="{color: color}">
-    <figure 
-      v-for="direction, ind in directions" 
-      :key="`direction-${ind}`" 
-      :class="['ball', direction]"
-    ></figure>
+  <section class="ball-container travelling-balls" :style="{ color }">
+    <figure v-for="direction, ind in directions" :key="`direction-${ind}`" class="ball" :class="[direction]" />
     <!-- <figure class="ball up"></figure>
     <figure class="ball down"></figure>
     <figure class="ball left"></figure>
@@ -13,9 +9,9 @@
 </template>
 
 <script>
-import { mapStores } from 'pinia';
-import useReactorStore from '../store/reactor';
-import { Directions } from '../config';
+import { mapStores } from 'pinia'
+import useReactorStore from '../../store/reactor'
+import { Directions } from '../../config'
 
 export default {
   props: {
@@ -26,15 +22,15 @@ export default {
     col: {
       type: Number,
       default: 0,
-    }
+    },
+    color: {
+      type: String,
+      default: 'red',
+    },
   },
 
   computed: {
     ...mapStores(useReactorStore),
-
-    color() {
-      return this.reactorStore.ballsMatrix[this.row][this.col].color;
-    },
 
     directions() {
       const Movements = {
@@ -42,32 +38,31 @@ export default {
         [Directions.DOWN]: [1, 0],
         [Directions.LEFT]: [0, -1],
         [Directions.RIGHT]: [0, 1],
-      };
+      }
 
       const isValidBox = (x, y) =>
-        x >= 0 && y >= 0 && x < this.reactorStore.rows && y < this.reactorStore.cols;
+        x >= 0 && y >= 0 && x < this.reactorStore.rows && y < this.reactorStore.cols
 
-      const directions = [];
+      const directions = []
       Object.entries(Movements).forEach(([direction, [moveX, moveY]]) => {
-        const targetRow = this.row + moveX;
-        const targetCol = this.col + moveY;
+        const targetRow = this.row + moveX
+        const targetCol = this.col + moveY
 
-        if (isValidBox(targetRow, targetCol)) {
-          directions.push(direction);
-        }
-      });
+        if (isValidBox(targetRow, targetCol))
+          directions.push(direction)
+      })
 
-      return directions;
+      return directions
     },
 
     count() {
-      return this.reactorStore.ballsMatrix[this.row][this.col].count;
+      return this.reactorStore.ballsMatrix[this.row][this.col].count
     },
   },
-};
+}
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .travelling-balls {
   z-index: 1;
 
@@ -93,7 +88,7 @@ export default {
     opacity: 1;
   }
   100% {
-    transform: translateY(calc(var(--width) * -1));
+    transform: translateY(calc(var(--boxWidth) * -1));
     opacity: 0;
   }
 }
@@ -103,7 +98,7 @@ export default {
     opacity: 1;
   }
   100% {
-    transform: translateY(var(--width));
+    transform: translateY(var(--boxWidth));
     opacity: 0;
   }
 }
@@ -113,7 +108,7 @@ export default {
     opacity: 1;
   }
   100% {
-    transform: translateX(calc(var(--width) * -1));
+    transform: translateX(calc(var(--boxWidth) * -1));
     opacity: 0;
   }
 }
@@ -123,7 +118,7 @@ export default {
     opacity: 1;
   }
   100% {
-    transform: translateX(var(--width));
+    transform: translateX(var(--boxWidth));
     opacity: 0;
   }
 }
