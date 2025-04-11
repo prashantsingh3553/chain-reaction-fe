@@ -1,24 +1,24 @@
 import { defineStore } from 'pinia';
 import { reactive, ref } from 'vue';
-import { LocalStorageConstants } from '~/config/localStorage';
-import { addPlayerIdToLocalStorage, addPlayerNameToLocalStorage } from '~/helpers/localStorage';
+import { addPlayerNameToLocalStorage } from '~/helpers/localStorage';
+import { ILocalStorageRoom } from '~/types/localStorage';
 
 const useGlobalStore = defineStore('global', () => {
   const playerName = ref('');
-  const playerId = ref('');
+  const previousRooms = ref<Record<string, ILocalStorageRoom>>({});
+
   const loading = reactive({
     joinRoom: false,
     createRoom: false,
-  })
-  
+  });
+
   function setPlayerName(name: string) {
     playerName.value = name;
     addPlayerNameToLocalStorage(name);
   }
 
-  function setPlayerId(_playerId: string) {
-    playerId.value = _playerId;
-    addPlayerIdToLocalStorage(_playerId);
+  function setPreviousRooms(rooms: Record<string, ILocalStorageRoom>) {
+    previousRooms.value = rooms;
   }
 
   function setCreateRoomInProgress(status: boolean) {
@@ -29,13 +29,17 @@ const useGlobalStore = defineStore('global', () => {
     loading.joinRoom = status;
   }
 
+  function getPreviousRoom(roomCode: string) {
+    return previousRooms.value[roomCode];
+  }
+
   return {
-    playerId,
     playerName,
     loading,
 
-    setPlayerId,
     setPlayerName,
+    setPreviousRooms,
+    getPreviousRoom,
     setCreateRoomInProgress,
     setJoinRoomInProgress,
   };

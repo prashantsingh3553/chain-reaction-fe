@@ -5,10 +5,11 @@ import './style.css'
 import "vue-toastification/dist/index.css";
 
 import App from './App.vue'
-import router from './router'
+import router from './router/index'
 import AxiosPlugin from './plugins/AxiosPlugin'
 import { loadLocalStorage } from './boot/localStorage'
 import Toast, { POSITION } from 'vue-toastification'
+import clickOutsideDirective from './directives/clickOutsideDirective';
 
 const pinia = createPinia()
 const app = createApp(App)
@@ -33,6 +34,9 @@ app.use(Toast, {
   maxToasts: 10,
   newestOnTop: true
 });
+
+app.directive('click-outside', clickOutsideDirective);
+
 
 loadLocalStorage();
 

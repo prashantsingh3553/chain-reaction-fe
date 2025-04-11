@@ -5,7 +5,7 @@ import usePlayers from './players'
 import useRoom from './room'
 import useReactor from './reactor'
 import { useRouter } from 'vue-router'
-import { allRoomDetailsResponseHandler } from '~/helpers/room'
+import { allRoomDetailsResponseHandler, playerRemovedResponseHandler } from '~/helpers/room'
 
 const useGameActions = defineStore('gameActions', () => {
   const $router = useRouter();
@@ -31,8 +31,22 @@ const useGameActions = defineStore('gameActions', () => {
 
   }
 
+  async function removePlayer(playerId: string) {
+    const response = await PlayerService.removePlayer({
+      roomCode: $room.roomCode,
+      playerId,
+    });
+
+    if (!response) {
+      return;
+    }
+
+    playerRemovedResponseHandler(response.playerId);
+  }
+
   return {
     playerJoin,
+    removePlayer,
   }
 })
 

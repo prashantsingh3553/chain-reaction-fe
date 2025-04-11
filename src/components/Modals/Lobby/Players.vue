@@ -14,6 +14,7 @@
       <button 
         v-if="showRemovePlayer && isPlayerRemovable(color)"
         class="remove-player font-sans z-10 hidden group-hover:block absolute top-1 right-1 bg-light shadow-md text-xs px-1 rounded-full cursor-pointer"
+        @click="removePlayer(color)"
        >
        Remove
       </button>
@@ -37,8 +38,10 @@ import Ball from '../../Board/Ball.vue';
 import usePlayers from '~/store/players';
 import { computed, ref } from 'vue';
 import { IPlayer } from '~/types/player';
+import useGameActions from '~/store/gameActions';
 
 const $players = usePlayers();
+const $gameActions = useGameActions();
 
 const noOfPlayers = ref(4);
 
@@ -60,7 +63,7 @@ function getPlayerByColor(color: string) {
     return null;
   }
 
-  if (player.id === $players.currentPlayer.id) {
+  if (player.id === $players.currentPlayer?.id) {
     return `${player.name} (You)`;
   }
 
@@ -74,11 +77,16 @@ function isPlayerRemovable(color: string) {
     return false;
   }
 
-  if (player.id === $players.currentPlayer.id) {
+  if (player.id === $players.currentPlayer?.id) {
     return false;
   }
 
   return true;
+}
+
+function removePlayer(color: string) {
+  const playerIdToRemove = playerToColorMap.value[color].id;
+  $gameActions.removePlayer(playerIdToRemove);
 }
 </script>
 

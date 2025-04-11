@@ -3,7 +3,7 @@ import NodeEnv from './NodeEnv'
 
 const BaseURLConfig = {
   API: {
-    [NodeEnv.DEV]: 'http://localhost:8080',
+    [NodeEnv.DEV]: 'http://192.168.0.101:8080', // 'http://localhost:8080',
     [NodeEnv.PROD]: 'https://api.example.com',
   },
 }

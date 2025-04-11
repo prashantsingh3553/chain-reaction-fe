@@ -25,7 +25,7 @@
     
       <span class="absolute top-0 left-0">{{ getBox(ind).count }}</span>
 
-      <TravellingBalls v-if="isTravellingBall(getRow(ind), getCol(ind))" :row="getRow(ind)" :col="getCol(ind)" :color="$reactor.travellingBallColor" />
+      <TravellingBalls v-if="isTravellingBall(getRow(ind), getCol(ind))" :row="getRow(ind)" :col="getCol(ind)" :color="travellingBallColor" />
       <Ball v-else :count="getBox(ind).count" :color="getBox(ind).color" />
     </div>
   </div>
@@ -36,7 +36,7 @@ import Constants from '../../config';
 import useReactorStore from '../../store/reactor';
 import Ball from './Ball.vue';
 import TravellingBalls from './TravellingBalls.vue';
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import usePlayers from '~/store/players';
 import useRoom from '~/store/room';
 import eventBus from '~/services/EventBus';
@@ -55,6 +55,17 @@ const state = reactive({
 });
 
 const totalBoxes = computed(() => $reactor.rows * $reactor.cols);
+const travellingBallColor = computed(() => {
+  return $players.playersMap[$reactor.playerIdInProgress]?.color
+});
+const isCurrentPlayerReactionInProgress = computed(() => $reactor.playerIdInProgress === $players.playerIdTurn);
+
+watch(() => $reactor.isGameOver, (newVal) => {
+  if (newVal) {
+    handleGameOver();
+  }
+});
+
 
 onMounted(async () => {
   eventBus.$on('add_ball', (data) => handlePlayerAddBall(data.playerId, data.row, data.col));
@@ -92,7 +103,7 @@ function isBoxClickable(ind: number) {
     $players.isCurrentPlayersTurn &&
     (
       !box.playerId ||
-      box.playerId === $players.currentPlayer.id
+      box.playerId === $players.currentPlayer?.id
     );
 }
 
@@ -114,18 +125,17 @@ function onAddBall(ind: number) {
   const row = getRow(ind);
   const col = getCol(ind);
 
-  handlePlayerAddBall($players.currentPlayer.id, row, col);
+  handlePlayerAddBall($players.currentPlayer?.id || '', row, col);
 }
 
 async function handlePlayerAddBall(playerId: string, row: number, col: number) {
   if (state.inProgress) return;
   state.inProgress = true;
 
-  if (playerId === $players.currentPlayer.id) {
+  if (playerId === $players.currentPlayer?.id) {
     soc_addBallToAllPlayers({ row, col });
   }
 
-  $players.setPlayerTurn(playerId);
   $reactor.startReaction(row, col);
   reactOnUI();
 }
@@ -142,8 +152,17 @@ async function reactOnUI() {
     $reactor.react();
   }
 
-  $players.setPlayerTurnOver();
+
+  if (isCurrentPlayerReactionInProgress.value) {
+    console.log('curr playerTurn')
+    $players.setPlayerTurnOver();
+  }
+
   state.inProgress = false;
+}
+
+function handleGameOver() {
+  console.log('game over');
 }
 </script>
 

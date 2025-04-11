@@ -7,16 +7,15 @@ import { IPlayer } from '~/types/player';
 import eventBus from '~/services/EventBus';
 import roomSocketService, { RoomSocketClientEvents } from '~/services/RoomSocketService';
 import Constants from '~/config';
+import useModal from '~/store/modal';
 
 export function allRoomDetailsResponseHandler(response: AllRoomDetails) {
-  const $global = useGlobalStore();
   const $room = useRoom();
   const $players = usePlayers();
   const $reactor = useReactor();
 
   const currentPlayer = response.leaderboard.players[response.currentPlayerId];
-  
-  $global.setPlayerId(currentPlayer.id);
+
   $room.setRoom(response.room);
   $players.currentPlayerJoined(currentPlayer);
   $players.setLeaderBoard(response.leaderboard);
@@ -37,6 +36,28 @@ export function joinResponseHandler(response: AllRoomDetails) {
 export function playerJoinedResponseHandler(player: IPlayer) {
   const $players = usePlayers();
   $players.addPlayer(player);
+}
+
+function resetRoomStores() {
+  const $room = useRoom();
+  const $players = usePlayers();
+  const $reactor = useReactor();
+
+  $room.$reset();
+  $players.$reset();
+  $reactor.$reset();
+}
+
+export function playerRemovedResponseHandler(playerId: string) {
+  const $modal = useModal();
+  const $players = usePlayers();
+
+  $players.removePlayer(playerId);
+
+  if ($players.currentPlayerId === playerId) {
+    $modal.showPlayerRemovedModal();
+    resetRoomStores();
+  }
 }
 
 export function gameStartedResponseHandler() {
@@ -60,36 +81,41 @@ export function soc_addBallToAllPlayers(data: { row: number, col: number }) {
 
   roomSocketService.emit(RoomSocketClientEvents.ADD_BALL, {
     roomCode: $room.roomCode,
-    playerId: $players.currentPlayer.id,
+    playerId: $players.currentPlayer?.id,
     row,
     col,
   });
 }
 
 export function soc_playerTurnOver(playerId: string) {
+  console.log('soc_playerTurnOver', playerId);
   const $room = useRoom();
   const $players = usePlayers();
 
-  const lastPlayerTurnColor = $players.playersMap[playerId].color;
-  const colorsOrder = Object.values(Constants.Colors)
-    .filter(color => Object.values($players.playersMap)
-      .some(player => player.color === color));
+  try {
+    const lastPlayerTurnColor = $players.playersMap[playerId].color;
+    const colorsOrder = Object.values(Constants.Colors)
+      .filter(color => Object.values($players.playersMap)
+        .some(player => player.color === color));
 
-  const index = colorsOrder.indexOf(lastPlayerTurnColor);
-  const nextIndex = (index + 1) % colorsOrder.length;
-  const nextColor = colorsOrder[nextIndex];
+    const index = colorsOrder.indexOf(lastPlayerTurnColor);
+    const nextIndex = (index + 1) % colorsOrder.length;
+    const nextColor = colorsOrder[nextIndex];
 
 
-  const nextPlayer = Object.values($players.playersMap).find((player) => player.color === nextColor);
+    const nextPlayer = Object.values($players.playersMap).find((player) => player.color === nextColor);
 
-  $players.setPlayerTurn(nextPlayer?.id || '');
-  
-  if (!nextPlayer) {
-    return;
+    $players.setPlayerTurn(nextPlayer?.id || '');
+
+    if (!nextPlayer) {
+      return;
+    }
+
+    roomSocketService.emit(RoomSocketClientEvents.NEXT_TURN, {
+      roomCode: $room.roomCode,
+      playerId: nextPlayer.id,
+    });
+  } catch (error) {
+    debugger;
   }
-
-  roomSocketService.emit(RoomSocketClientEvents.NEXT_TURN, {
-    roomCode: $room.roomCode,
-    playerId: nextPlayer.id,
-  });
-}
+};

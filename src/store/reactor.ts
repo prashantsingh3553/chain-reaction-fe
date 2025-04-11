@@ -24,7 +24,6 @@ interface TravellingBall {
 
 const useReactor = defineStore('reactor', () => {
   const $room = useRoom()
-  const $players = usePlayers()
 
   const rows = ref(Constants.NO_OF_ROWS)
   const cols = ref(Constants.NO_OF_COLS)
@@ -32,7 +31,36 @@ const useReactor = defineStore('reactor', () => {
   const _ballsMatrix = ref<Ball[][]>([[]])
   const travellingBalls = ref<TravellingBall[]>([])
 
+  const playerIdInProgress = ref('');
+
+  const playerIdToBoxCountMap = computed(() => {
+    const freqMap: Record<string, number> = {};
+
+    _ballsMatrix.value.forEach(row => {
+      row.forEach(cell => {
+        if (cell.playerId) {
+          if (!freqMap[cell.playerId]) {
+            freqMap[cell.playerId] = 0;
+          }
+          freqMap[cell.playerId]++;
+        }
+      });
+    });
+
+    return freqMap;
+  });
+
+  const totalBoxes = computed(() => rows.value * cols.value);
+
+  const isGameOver = computed(() => {
+    const matrixFilledBySamePlayer = Object.values(playerIdToBoxCountMap.value).some(count => count === totalBoxes.value);
+    return matrixFilledBySamePlayer;
+  });
+
+
   const ballsMatrix = computed(() => {
+    const $players = usePlayers();
+
     return _ballsMatrix.value.reduce((acc, row) => {
       acc.push(row.map(cell => {
         const playerColor = $players.playersMap[cell.playerId]?.color;
@@ -47,17 +75,14 @@ const useReactor = defineStore('reactor', () => {
     }, [] as BallWithColor[][]);
   });
 
-  const travellingBallColor = computed(() => {
-    return $players.playersMap[$players.playerIdTurn]?.color
-  });
-
   function addBall(row: number, col: number) {
     _ballsMatrix.value[row][col].count += 1
-    _ballsMatrix.value[row][col].playerId = $players.playerIdTurn;
+    _ballsMatrix.value[row][col].playerId = playerIdInProgress.value;
   }
 
   function addTravellingBall(fromRow: number, fromCol: number, toRow: number, toCol: number) {
-    _ballsMatrix.value[fromRow][fromCol].playerId = $players.playerIdTurn;
+    //[TODO]: check if this is necessary?
+    // _ballsMatrix.value[fromRow][fromCol].playerId = playerIdInProgress.value;
     travellingBalls.value.push({ fromRow, fromCol, toRow, toCol })
   }
 
@@ -82,6 +107,10 @@ const useReactor = defineStore('reactor', () => {
   }
 
   function explodeIfFull(row: number, col: number) {
+    if (isGameOver.value) {
+      return;
+    }
+
     if (
       _ballsMatrix.value[row][col].count >= _ballsMatrix.value[row][col].capacity
     ) {
@@ -95,16 +124,22 @@ const useReactor = defineStore('reactor', () => {
     const travellingBallsCopy = [...travellingBalls.value]
     travellingBallsCopy.forEach(
       ({ fromRow, fromCol, toRow, toCol }, index) => {
-        startReaction(toRow, toCol)
+        startReactionUtil(toRow, toCol)
         travellingBalls.value.shift()
         _ballsMatrix.value[fromRow][fromCol].playerId = '';
       },
     )
   }
 
-  function startReaction(row: number, col: number) {
+  function startReactionUtil(row: number, col: number) {
     addBall(row, col)
     explodeIfFull(row, col)
+  }
+
+  function startReaction(row: number, col: number) {
+    const $players = usePlayers();
+    playerIdInProgress.value = $players.playerIdTurn;
+    startReactionUtil(row, col)
   }
 
   function setBoard(boardState: ICell[][]) {
@@ -133,17 +168,18 @@ const useReactor = defineStore('reactor', () => {
   // For testing
   function fillRandomValue() {
     const matrix: Ball[][] = []
-    const a = false
+    const playerIds = ['vifs', 'yhs4'];
 
     for (let row = 0; row < rows.value; row++) {
       const matrixRow: Ball[] = []
+      const randomPlayerId = playerIds[~~(Math.random() * playerIds.length)];
 
       for (let col = 0; col < cols.value; col++) {
         const color = Object.values(Constants.Colors)[
           ~~(Math.random() * Object.values(Constants.Colors)
             .length)]
         const ball: Ball = {
-          playerId: '',
+          playerId: randomPlayerId,
           count: 0,
           capacity: Constants.CAPACITY[Positions.MIDDLE],
         }
@@ -153,13 +189,12 @@ const useReactor = defineStore('reactor', () => {
           ball.capacity = Constants.CAPACITY[Positions.CORNER]
         }
         else if (isSideBox(row, col)) {
-          ball.count = ~~(Math.random() * 3)
-          // ball.count = 0;
+          ball.count = 2; // ~~(Math.random() * 3)
+
           ball.capacity = Constants.CAPACITY[Positions.SIDE]
         }
         else {
-          ball.count = ~~(Math.random() * 4)
-          // ball.count = 0;
+          ball.count = 3; // ~~(Math.random() * 4)
           ball.capacity = Constants.CAPACITY[Positions.MIDDLE]
         }
 
@@ -184,9 +219,9 @@ const useReactor = defineStore('reactor', () => {
     return (
       !isCornerBox(row, col)
       && (row === 0
-      || col === 0
-      || row === rows.value - 1
-      || col === cols.value - 1)
+        || col === 0
+        || row === rows.value - 1
+        || col === cols.value - 1)
     )
   }
 
@@ -203,19 +238,30 @@ const useReactor = defineStore('reactor', () => {
     return Positions.MIDDLE
   }
 
+  function $reset() {
+    rows.value = Constants.NO_OF_ROWS;
+    cols.value = Constants.NO_OF_COLS;
+    _ballsMatrix.value = [];
+    travellingBalls.value = [];
+  }
+
   return {
     rows,
     cols,
     boxWidth,
     travellingBalls,
+    playerIdInProgress,
 
     ballsMatrix,
-    travellingBallColor,
+    playerIdToBoxCountMap,
+    isGameOver,
+    totalBoxes,
 
     setBoard,
     react,
     startReaction,
     fillRandomValue,
+    $reset,
   }
 })
 

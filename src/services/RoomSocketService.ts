@@ -1,13 +1,14 @@
 import { BaseEnvURLConfig } from '~/config/BaseURLs';
 import { io } from 'socket.io-client';
 import { IPlayer } from '~/types/player';
-import { addBallResponseHandler, gameStartedResponseHandler, nextPlayerTurnResponseHandler, playerJoinedResponseHandler } from '~/helpers/room';
+import { addBallResponseHandler, gameStartedResponseHandler, nextPlayerTurnResponseHandler, playerJoinedResponseHandler, playerRemovedResponseHandler } from '~/helpers/room';
 
 export enum RoomSocketServerEvents {
   CONNECT = 'connect',
   DISCONNECT = 'disconnect',
   PLAYER_JOINED = 'player_joined',
   PLAYER_LEAVE = 'player_leave',
+  PLAYER_REMOVED = 'player_removed',
   GAME_STARTED = 'game_started',
   GAME_OVER = 'game_over',
   GAME_UPDATE = 'game_update',
@@ -49,6 +50,9 @@ class RoomSocketService {
       })
       .on(RoomSocketServerEvents.NEXT_TURN, (data: { playerId: string }) => {
         nextPlayerTurnResponseHandler(data);
+      })
+      .on(RoomSocketServerEvents.PLAYER_REMOVED, (data: { playerId: string }) => {
+        playerRemovedResponseHandler(data.playerId);
       });
     
     // join room

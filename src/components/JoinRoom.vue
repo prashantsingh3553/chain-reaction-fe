@@ -10,6 +10,7 @@
         type="text"
         placeholder="Room code"
         class="border border-dark-1 mt-4 bg-transparent w-full h-10 p-2 rounded focus:outline-slate-400"
+        @keydown.enter="onJoin"
         @input="onRoomCodeInput"
       >
 
@@ -48,7 +49,12 @@ async function onJoin() {
     return;
   }
 
-  if (!$globalStore.playerName) {
+  if($globalStore.getPreviousRoom(roomCode.value)) {
+    $router.push(`/room/${roomCode.value}`);
+    return;
+  }
+
+  if(!$globalStore.playerName) {
     $router.push(`/room/${roomCode.value}/player`);
     return;
   }

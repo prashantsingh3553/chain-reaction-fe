@@ -19,6 +19,11 @@ const useRoom = defineStore('room', () => {
     roomState.value = state;
   }
 
+  function $reset() {
+    roomCode.value = '';
+    roomState.value = RoomState.WAITING;
+  }
+
   return {
     roomCode,
     roomState,
@@ -28,6 +33,7 @@ const useRoom = defineStore('room', () => {
 
     setRoom,
     setRoomState,
+    $reset,
   }
 });
 

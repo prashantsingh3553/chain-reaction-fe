@@ -4,15 +4,23 @@
     <div class="body overflow-hidden">
       <RouterView :key="route.path" />
     </div>
+    <PlayerRemovedModal v-if="$modal.showPlayerRemoved" @close="closePlayerRemovedModal" />
   </main>
 </template>
 
 <script setup lang="ts">
 import { RouterView, useRoute } from 'vue-router'
 import Header from '../components/Header.vue';
+import PlayerRemovedModal from '../components/Modals/PlayerRemoved.vue';
+import useModal from '../store/modal';
+
+const $modal = useModal();
 
 const route = useRoute()
 
+function closePlayerRemovedModal() {
+  $modal.closePlayerRemovedModal();
+}
 </script>
 
 <style lang="scss" scoped>

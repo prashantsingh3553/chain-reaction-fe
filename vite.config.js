@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
     plugins: [vue()],
     server: {
       port: 6969,
+      host: true,
     },
     resolve: {
       alias: [

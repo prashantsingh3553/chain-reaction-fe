@@ -14,7 +14,8 @@
 
           <div class="actions mt-4">
             <button v-if="$players.isHost"
-              class="start-game w-full p-2 mt-4 mx-auto rounded shadow-md text-light bg-lime-600 hover:opacity-90 active:opacity-100"
+              class="start-game w-full p-2 mt-4 mx-auto rounded shadow-md text-ligh hover:opacity-90 active:opacity-100"
+              :class="[canStartGame ? 'bg-lime-600' : 'bg-gray-400']"
               @click="onStartGame"
             >
               Start Game
@@ -40,18 +41,16 @@ import RoomInfo from './RoomInfo.vue';
 import RoomService from '~/services/RoomService';
 import { useRoute } from 'vue-router';
 import { gameStartedResponseHandler } from '~/helpers/room';
-
+import { computed } from 'vue';
 const $route = useRoute();
 const roomCode = $route.params.roomCode as string;
 
 const $players = usePlayers();
 
-function canStartGame() {
-  return $players.isHost && Object.keys($players.playersMap).length > 1;
-}
+const canStartGame = computed(() => $players.isHost && Object.keys($players.playersMap).length > 1);
 
 async function onStartGame() {
-  if (!canStartGame()) {
+  if (!canStartGame.value) {
     return;
   }
 

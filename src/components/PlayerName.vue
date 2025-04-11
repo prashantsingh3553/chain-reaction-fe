@@ -6,7 +6,7 @@
 
     <div class="flex gap-2">
       <!-- Player Name -->
-      <input :value="playerName" type="text" placeholder="Player nickname"
+      <input :value="$global.playerName" type="text" placeholder="Player nickname"
         class="border border-dark-1 mt-4 bg-transparent w-full h-10 p-2 rounded focus:outline-slate-400"
         @input="onPlayerNameInput" />
         >
@@ -31,25 +31,23 @@ const $router = useRouter();
 const $global = useGlobalStore();
 
 const roomCode = ref('');
-const playerName = ref('');
 
 onMounted(() => {
   roomCode.value = $route.params.roomCode as string;
 });
 
 function onPlayerNameInput(event: Event) {
-  playerName.value = (event.target as HTMLInputElement).value;
+  const name = (event.target as HTMLInputElement).value;
+  $global.setPlayerName(name);
 }
 
 async function onJoin() {
-  if(!playerName.value) {
+  if(!$global.playerName) {
     return;
   }
 
-  $global.setPlayerName(playerName.value);
-
   const response = await RoomService.join({
-    playerName: playerName.value,
+    playerName: $global.playerName,
     roomCode: roomCode.value,
   });
 

@@ -20,7 +20,7 @@ const Constants = {
     '8x7': { rows: 8, cols: 7 },
   },
 
-  TransitionDuration: 3000, // 500
+  TransitionDuration: 500,
 
   Colors: {
     BLUE: '#0896e1',

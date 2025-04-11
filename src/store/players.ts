@@ -1,23 +1,45 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { Role, type ILeaderboard, type IPlayer } from '../types/player'
-import useRoom from './room'
-import { LocalStorageConstants, LocalStorageExpiry } from '~/config/localStorage'
-import { addPlayerIdToLocalStorage } from '~/helpers/localStorage'
+import { addRoomToLocalStorage } from '~/helpers/localStorage'
 import { soc_playerTurnOver } from '~/helpers/room'
+import useReactor from './reactor'
 
 const usePlayers = defineStore('players', () => {
   const currentPlayerId = ref('')
   const playersMap = ref<Record<string, IPlayer>>({})
   const playerIdTurn = ref('');
+  const $reactor = useReactor();
 
-  const currentPlayer = computed(() => playersMap.value[currentPlayerId.value])
+  const currentPlayer = computed<IPlayer | undefined>(() => playersMap.value[currentPlayerId.value])
   const isHost = computed(() => currentPlayer.value?.role === Role.HOST);
   const isCurrentPlayersTurn = computed(() => playerIdTurn.value === currentPlayerId.value);
 
+  const leaderboard = computed(() => {
+    const playerIdToBoxCountMap = $reactor.playerIdToBoxCountMap;
+    const leaderboard: Record<string, IPlayer> = {};
+
+    Object.keys(playersMap.value).forEach(playerId => {
+      const player = playersMap.value[playerId];
+      leaderboard[playerId] = {
+        ...player,
+        score: playerIdToBoxCountMap[playerId] || 0,
+      }
+    });
+
+    return leaderboard;
+  })
+
+  const totalBoxes = computed(() => $reactor.totalBoxes);
+
   function setCurrentPlayer(playerId: string) {
     currentPlayerId.value = playerId
-    addPlayerIdToLocalStorage(playerId);
+    const roomCode = playersMap.value[playerId].roomCode;
+
+    addRoomToLocalStorage({
+      roomCode: roomCode,
+      playerId: playerId,
+    });
   }
 
   function addPlayer(player: IPlayer) {
@@ -25,15 +47,19 @@ const usePlayers = defineStore('players', () => {
   }
 
   function currentPlayerJoined(player: IPlayer) {
-    addPlayer(player)
-    setCurrentPlayer(player.id)
+    if (!player) {
+      return;
+    }
+
+    addPlayer(player);
+    setCurrentPlayer(player.id);
   }
 
   function setLeaderBoard(_leaderboard: ILeaderboard) {
     Object.keys(_leaderboard.players).forEach((playerId) => {
-        const player = _leaderboard.players[playerId];
-        addPlayer(player)
-      }
+      const player = _leaderboard.players[playerId];
+      addPlayer(player)
+    }
     );
   }
 
@@ -46,19 +72,34 @@ const usePlayers = defineStore('players', () => {
     soc_playerTurnOver(lastPlayerIdTurn);
   }
 
+  function removePlayer(playerId: string) {
+    delete playersMap.value[playerId];
+  }
+
+  function $reset() {
+    playersMap.value = {};
+    playerIdTurn.value = '';
+    currentPlayerId.value = '';
+  }
+
   return {
     playersMap,
     playerIdTurn,
+    currentPlayerId,
 
     currentPlayer,
     isHost,
     isCurrentPlayersTurn,
-
+    leaderboard,
+    totalBoxes,
+    
     addPlayer,
     currentPlayerJoined,
     setLeaderBoard,
     setPlayerTurn,
     setPlayerTurnOver,
+    removePlayer,
+    $reset,
   }
 })
 

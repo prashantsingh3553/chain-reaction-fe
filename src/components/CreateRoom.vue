@@ -5,7 +5,7 @@
     </div>
     <div class="flex flex-col gap-3">
       <!-- Player name -->
-      <input :value="playerName" type="text" placeholder="Player nickname"
+      <input :value="$globalStore.playerName" type="text" placeholder="Player nickname"
         class="border border-dark-1 mt-4 bg-transparent w-full h-10 p-2 rounded focus:outline-slate-400"
         @input="onPlayerNameInput">
 
@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import useGlobalStore from '../store/global';
 import RoomService from '../services/RoomService';
 import Constants from '../config';
@@ -44,7 +44,6 @@ type GridSize = keyof typeof Constants.MATRIX_SIZES;
 const $router = useRouter();
 const $globalStore = useGlobalStore();
 
-const playerName = ref('');
 const selectedGridSize = ref<GridSize>('8x7');
 
 const gridSizeList = computed(() => Object.keys(Constants.MATRIX_SIZES)
@@ -52,14 +51,11 @@ const gridSizeList = computed(() => Object.keys(Constants.MATRIX_SIZES)
 
 const selectedGridSizeValue = computed(() => Constants.MATRIX_SIZES[selectedGridSize.value]);
 
-const isValidInput = computed(() => playerName.value.trim().length > 0 && selectedGridSizeValue.value);
-
-onMounted(() => {
-  playerName.value = $globalStore.playerName;
-});
+const isValidInput = computed(() => $globalStore.playerName.trim().length > 0 && selectedGridSizeValue.value);
 
 function onPlayerNameInput(event: Event) {
-  playerName.value = (event.target as HTMLInputElement).value;
+  const name = (event.target as HTMLInputElement).value;
+  $globalStore.setPlayerName(name);
 }
 
 async function onCreate() {
@@ -67,11 +63,9 @@ async function onCreate() {
     return;
   }
 
-  $globalStore.setPlayerName(playerName.value);
-
   $globalStore.setCreateRoomInProgress(true);
   const response = await RoomService.createAndJoin({
-    playerName: playerName.value,
+    playerName: $globalStore.playerName,
     ...selectedGridSizeValue.value,
   });
   $globalStore.setCreateRoomInProgress(false);
